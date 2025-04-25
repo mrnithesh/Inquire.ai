@@ -3,7 +3,7 @@ import os
 import tempfile
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_chroma import Chroma  # updated import per deprecation warning
+from langchain_chroma import Chroma  
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain.chains import RetrievalQA
 
@@ -35,12 +35,21 @@ def load_and_chunk(file_path, file_type):
 def get_vectorstore(project):
     project_dir = os.path.join(CHROMA_DIR, project)
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    return Chroma(persist_directory=project_dir, embedding_function=embeddings)
+    # collection_name for project isolation
+    return Chroma(
+        persist_directory=project_dir,
+        embedding_function=embeddings,
+        collection_name=project
+    )
 
 def add_docs_to_vectorstore(project, docs):
     project_dir = os.path.join(CHROMA_DIR, project)
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vectordb = Chroma(persist_directory=project_dir, embedding_function=embeddings)
+    vectordb = Chroma(
+        persist_directory=project_dir,
+        embedding_function=embeddings,
+        collection_name=project
+    )
     vectordb.add_documents(docs)
 
 
@@ -91,6 +100,7 @@ if uploaded_files:
 st.header(f"Ask questions about your documents in '{project}'")
 query = st.text_input("Enter your question")
 if query:
+    project = st.session_state["project"]
     vectorstore = get_vectorstore(project)
     qa_chain = get_qa_chain(vectorstore)
     with st.spinner("Retrieving and answering..."):

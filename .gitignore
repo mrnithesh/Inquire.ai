@@ -2,3 +2,4 @@ venv/
 .env
 chroma_db/
 *.pdf
+temp.py
