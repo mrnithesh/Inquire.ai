@@ -5,12 +5,17 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_chroma import Chroma  
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # LangGraph imports for newer implementation
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+# Add Tavily API key setup
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
+# You can also add this to Streamlit secrets or UI input if preferred
 
 CHROMA_DIR = "chroma_db"
 os.makedirs(CHROMA_DIR, exist_ok=True)
@@ -70,35 +75,57 @@ def get_retrieval_tool(vectorstore):
     
     return retrieve
 
+# --- New Tavily web search tool ---
+def get_web_search_tool():
+    search_tool = TavilySearchResults(k=3)
+    
+    @tool("search_web")
+    def search_web(query: str) -> str:
+        """Search the web for current information not found in the project documents."""
+        try:
+            results = search_tool.invoke(query)
+            if not results:
+                return "No relevant information found on the web for this query."
+            
+            formatted_results = []
+            for i, result in enumerate(results, 1):
+                title = result.get("title", "No title")
+                content = result.get("content", "No content")
+                url = result.get("url", "No URL")
+                formatted_results.append(f"Result {i}:\nTitle: {title}\nContent: {content}\nSource: {url}\n")
+            
+            return "\n".join(formatted_results)
+        except Exception as e:
+            return f"Error searching the web: {str(e)}"
+    
+    return search_web
+
 # --- Agent setup using LangGraph ---
 def get_agent_executor(vectorstore):
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.5)
     retrieve_tool = get_retrieval_tool(vectorstore)
-    tools = [retrieve_tool]
+    web_search_tool = get_web_search_tool()
+    tools = [retrieve_tool, web_search_tool]
     
     # Define a custom system message template for the agent
-    from langchain_core.prompts import SystemMessagePromptTemplate
-    from langchain_core.messages import SystemMessage
+    system_template = """You are a helpful assistant for answering questions about documents and general knowledge.
     
-    system_template = """You are a helpful assistant for answering questions about documents.
+    To answer the user's questions, you have access to these tools:
     
-    To answer the user's questions, you have access to a tool that can retrieve information from the documents:
-    
-    retrieve_project_context: Use this tool to search for relevant information in the documents based on the user's question.
+    1. retrieve_project_context: Use this tool to search for relevant information in the project documents based on the user's question.
+    2. search_web: Use this tool to search the web for information not found in the project documents.
     
     Follow these steps for EVERY user question:
-    1. ALWAYS use the retrieve_project_context tool with the user's exact question as the query
-    2. After receiving the context, synthesize a direct answer based on that information
-    3. If no relevant information is found, tell the user that the information is not available in the documents
+    1. FIRST, use the retrieve_project_context tool with the user's question as the query
+    2. If the retrieved context fully answers the question, synthesize a direct answer based on that information
+    3. If the retrieved context partially answers or doesn't answer the question, use the search_web tool to find additional information
+    4. Synthesize a comprehensive answer using both project documents and web search results as appropriate
+    5. Clearly indicate which parts of your answer come from project documents versus web search
     
-    IMPORTANT: NEVER ask the user to provide a query - use their original question as the query for the tool.
+    IMPORTANT: NEVER ask the user to provide a query - use their original question as the query for the tools.
     
     User's question: {input}
     """
-    
-    # Configure the agent with the custom prompt
-    from langgraph.prebuilt import create_react_agent
-    from langchain_core.messages import HumanMessage
     
     # Create the agent with our tools
     agent = create_react_agent(llm, tools)
@@ -129,8 +156,9 @@ def get_agent_executor(vectorstore):
     return invoke_agent_with_query
 
 # --- UI ---
-st.set_page_config(page_title="RAG Assistant", layout="wide")
+st.set_page_config(page_title="Research Assistant", layout="wide")
 st.title("RAG Assistant")
+
 
 # Project selection/creation
 st.sidebar.header("Projects")
@@ -167,6 +195,8 @@ if uploaded_files:
         if project_key in st.session_state:
             del st.session_state[project_key]
 
+
+
 # --- Chat history state ---
 project_key = f"chat_history_{st.session_state.get('project', 'default')}"
 if project_key not in st.session_state:
@@ -187,6 +217,7 @@ if query:
     if "project" not in st.session_state:
         st.error("Please select or create a project first.")
     else:
+            
         project = st.session_state["project"]
         vectorstore = get_vectorstore(project)
         agent_invoker = get_agent_executor(vectorstore)
@@ -218,19 +249,6 @@ if query:
                 assistant_message = AIMessage(content=answer)
                 st.session_state[project_key].append(assistant_message)
                 
-                # Show tool outputs if available
-                if "intermediate_steps" in result:
-                    tool_outputs = []
-                    for step in result["intermediate_steps"]:
-                        if len(step) >= 2 and step[1]:  # Check if there's output from the tool
-                            tool_outputs.append(step[1])
-                    
-                    if tool_outputs:
-                        with st.expander("Retrieved Context"):
-                            for i, output in enumerate(tool_outputs):
-                                st.markdown(f"**Context Chunk {i+1}:**")
-                                st.text(output[:1000] + ("..." if len(output) > 1000 else ""))
-            
             except Exception as e:
                 error_msg = f"Error: {str(e)}"
                 st.error(error_msg)
