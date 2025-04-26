@@ -99,42 +99,132 @@ def get_web_search_tool():
             return f"Error searching the web: {str(e)}"
     
     return search_web
+# --- Document summarization tool ---
+@tool("summarize")
+def summarize(content: str) -> str:
+    """Summarize a section or full document.
+    The content parameter should be the text you want to summarize."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+    
+    prompt = f"""
+    Please provide a comprehensive yet concise summary of the following content:
+    
+    {content}
+    
+    Focus on the key points, main arguments, and important findings. 
+    Organize the summary in a coherent structure with clear sections if appropriate.
+    """
+    
+    result = llm.invoke(prompt)
+    return result.content
+
+# --- KPI extraction tool ---
+@tool("extract_kpis")
+def extract_kpis(content: str) -> str:
+    """Extract Key Performance Indicators (KPIs) or numeric metrics from the content.
+    The content parameter should be the text from which you want to extract metrics."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.1)
+    
+    prompt = f"""
+    Please extract all key performance indicators (KPIs) and numeric metrics from the following content:
+    
+    {content}
+    
+    For each KPI or metric found, provide:
+    1. The metric name/type
+    2. The numeric value
+    3. The time period or date it refers to (if available)
+    4. The context around this metric
+    
+    Format the results as a structured list with clear categories. If you identify trends or year-over-year
+    comparisons, highlight those specifically.
+    """
+    
+    result = llm.invoke(prompt)
+    return result.content
+
+# --- Report generation tool ---
+@tool("generate_report")
+def generate_report(topic: str, context: str) -> str:
+    """Create a brief report based on retrieved information.
+    The topic parameter should be the main subject of the report.
+    The context parameter should contain the relevant information to include in the report."""
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+    
+    prompt = f"""
+    Generate a professional, concise report on the topic: "{topic}"
+    
+    Base your report on the following information:
+    
+    {context}
+    
+    Your report should include:
+    1. An executive summary
+    2. Key findings organized by relevant categories
+    3. Conclusions and implications if applicable
+    
+    Format the report professionally with clear section headings and a logical structure.
+    Maintain an objective, analytical tone throughout.
+    """
+    
+    result = llm.invoke(prompt)
+    return result.content
 
 # --- Agent setup using LangGraph ---
 def get_agent_executor(vectorstore):
     llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.5)
+    
+    # Gather all tools
     retrieve_tool = get_retrieval_tool(vectorstore)
     web_search_tool = get_web_search_tool()
-    tools = [retrieve_tool, web_search_tool]
+    
+    # Create a list of all tools
+    tools = [
+        retrieve_tool, 
+        web_search_tool,
+        summarize,
+        extract_kpis,
+        generate_report
+    ]
     
     # Define a custom system message template for the agent
-    system_template = """You are a helpful assistant for answering questions about documents and general knowledge.
-    
-    To answer the user's questions, you have access to these tools:
-    
-    1. retrieve_project_context: Use this tool to search for relevant information in the project documents based on the user's question.
-    2. search_web: Use this tool to search the web for information not found in the project documents.
-    
-    Follow these steps for EVERY user question:
-    1. FIRST, use the retrieve_project_context tool with the user's question as the query
-    2. If the retrieved context fully answers the question, synthesize a direct answer based on that information
-    3. If the retrieved context partially answers or doesn't answer the question, use the search_web tool to find additional information
-    4. Synthesize a comprehensive answer using both project documents and web search results as appropriate
-    5. Clearly indicate which parts of your answer come from project documents versus web search
-    
-    IMPORTANT: NEVER ask the user to provide a query - use their original question as the query for the tools.
-    
-    User's question: {input}
-    """
+    system_template = """You are an autonomous research assistant specialized in analyzing documents and creating insights.
+
+You have access to these tools:
+
+1. retrieve_project_context: Use this to search for information in the project documents. ALWAYS use this first to get relevant context.
+2. search_web: Use this to search the web for information not found in the documents, especially for current events and external data.
+3. summarize: Use this to create a concise summary of a document or section. Feed the retrieved content to be summarized.
+4. extract_kpis: Use this to identify and extract key metrics, numbers, and KPIs from documents. Feed the retrieved content to extract from.
+5. generate_report: Use this to create a professional report on a specific topic using the context you've gathered.
+
+DECISION MAKING PROCESS:
+1. FIRST, analyze the user's request carefully to determine their intent and required information.
+2. Use retrieve_project_context FIRST to gather relevant information from uploaded documents.
+3. If project documents don't contain sufficient information, use search_web to find complementary data.
+4. Apply the appropriate analytical tools based on the user's needs:
+   - For summarization requests → Use summarize()
+   - For metric/KPI analysis → Use extract_kpis()
+   - For  reports → Use generate_report()
+5. Chain multiple tools together when needed. For example:
+   - retrieve_project_context → summarize → generate_report
+   - retrieve_project_context → extract_kpis + search_web → generate_report
+
+Examples:
+- If asked to "Summarize the ESG risks in the uploaded report" → Use retrieve_project_context to find ESG content, then summarize the results
+- If asked to "Compare carbon emissions between 2022 and 2023" → Use retrieve_project_context with specific year queries, then extract_kpis on both sets of results
+- If asked for a comprehensive analysis → Chain multiple tools and synthesize the findings
+
+IMPORTANT: Always show your reasoning about which tools to use and why. Make autonomous decisions about the best approach to fulfill the user's request.
+
+User's question: {input}
+"""
     
     # Create the agent with our tools
     agent = create_react_agent(llm, tools)
     
     # Function to properly invoke the agent with our custom approach
     def invoke_agent_with_query(query, chat_history=None):
-        # Format the query to explicitly instruct the agent
-        formatted_query = f"Search for information about: {query}"
-        
         # Create messages to send to the agent
         messages = []
         
@@ -146,7 +236,7 @@ def get_agent_executor(vectorstore):
             messages.extend(chat_history)
         
         # Add the current query
-        messages.append(HumanMessage(content=formatted_query))
+        messages.append(HumanMessage(content=query))
         
         # Invoke the agent with these messages
         result = agent.invoke({"messages": messages})
