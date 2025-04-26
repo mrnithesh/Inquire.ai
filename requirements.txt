@@ -9,3 +9,4 @@ langchain-text-splitters
 langchain-chroma 
 tavily-python
 python-dotenv
+langgraph
