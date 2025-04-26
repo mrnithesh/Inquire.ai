@@ -13,9 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-# Add Tavily API key setup
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
-# You can also add this to Streamlit secrets or UI input if preferred
 
 CHROMA_DIR = "chroma_db"
 os.makedirs(CHROMA_DIR, exist_ok=True)
@@ -246,10 +244,13 @@ User's question: {input}
     return invoke_agent_with_query
 
 # --- UI ---
-st.set_page_config(page_title="Research Assistant", layout="wide")
-st.title("RAG Assistant")
-
-
+st.set_page_config(
+    page_title="Research Assistant",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    page_icon="🔍"
+)
+st.header("🤖 Research Assistant")
 # Project selection/creation
 st.sidebar.header("Projects")
 projects = list_projects()
@@ -292,7 +293,7 @@ project_key = f"chat_history_{st.session_state.get('project', 'default')}"
 if project_key not in st.session_state:
     st.session_state[project_key] = []
 
-st.header(f"Ask questions about your documents in '{st.session_state.get('project', 'N/A')}'")
+st.write(f"Ask questions about your documents in '{st.session_state.get('project', 'N/A')}'")
 
 # Display chat history
 for message in st.session_state[project_key]:
@@ -330,8 +331,6 @@ if query:
                         answer = assistant_messages[-1].content
                     else:
                         answer = "I couldn't generate a proper response."
-                else:
-                    answer = "I couldn't find an answer based on the available documents."
                 
                 st.chat_message("assistant").write(answer)
                 
