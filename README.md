@@ -72,7 +72,7 @@ export GOOGLE_API_KEY="your-google-api-key"
 export TAVILY_API_KEY="your-tavily-api-key"
 
 # Run the app
-streamlit run app.py
+streamlit run main.py
 ```
 
 ---
@@ -80,13 +80,26 @@ streamlit run app.py
 ## 📁 Project Structure
 
 ```plaintext
-chroma_db/
-    └── [Project Name]/
-        └── Vectorstore files (for fast retrieval)
-
-app.py
-requirements.txt
-README.md
+research-agent/
+├── src/
+│   ├── __init__.py
+│   ├── config/
+│   │   └── constants.py
+│   ├── tools/
+│   │   ├── retrieval_tools.py
+│   │   └── analysis_tools.py
+│   ├── utils/
+│   │   └── document_utils.py
+│   ├── models/
+│   │   └── agent.py
+│   └── ui/
+│       └── app.py
+├── chroma_db/
+│   └── [Project Name]/
+│       └── Vectorstore files (for fast retrieval)
+├── main.py
+├── requirements.txt
+└── README.md
 ```
 
 ---
