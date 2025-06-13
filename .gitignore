@@ -3,3 +3,5 @@ venv/
 chroma_db/
 *.pdf
 temp.py
+*.pyc
+__pycache__/
