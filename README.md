@@ -1,4 +1,4 @@
-# 📚 Research Assistant
+# 📚 Inquire.ai
 
 An autonomous research assistant built with **Streamlit**, **LangChain**, and **Google Gemini**.  
 Upload documents, ask questions, extract KPIs, summarize reports, and generate professional insights — all in one place.
@@ -61,8 +61,8 @@ Upload documents, ask questions, extract KPIs, summarize reports, and generate p
 
 ```bash
 # Clone the repository
-git clone https://github.com/mrnithesh/research-agent.git
-cd research-agent
+git clone https://github.com/mrnithesh/Inquire.ai.git
+cd Inquire.ai
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -80,7 +80,7 @@ streamlit run main.py
 ## 📁 Project Structure
 
 ```plaintext
-research-agent/
+Inquire.ai/
 ├── src/
 │   ├── __init__.py
 │   ├── config/

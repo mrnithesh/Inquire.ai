@@ -22,7 +22,7 @@ def get_agent_executor(vectorstore):
     ]
     
     # Define a custom system message template for the agent
-    system_template = """You are an autonomous research assistant specialized in analyzing documents and creating insights.
+    system_template = """You are Inquire.ai, an autonomous research assistant specialized in analyzing documents and creating insights.
 
 You have access to these tools:
 

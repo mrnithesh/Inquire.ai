@@ -15,12 +15,12 @@ from src.models.agent import get_agent_executor
 
 def main():
     st.set_page_config(
-        page_title="Research Assistant",
+        page_title="Inquire.ai",
         layout="wide",
         initial_sidebar_state="expanded",
         page_icon="🔍"
     )
-    st.header("🤖 Research Assistant")
+    st.header("🤖 Inquire.ai")
 
     # Project selection/creation
     st.sidebar.header("Projects")

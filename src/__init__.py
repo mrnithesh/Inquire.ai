@@ -1,3 +1,3 @@
 """
-Research Assistant - A Streamlit application for document analysis and research.
+Inquire.ai - A Streamlit application for document analysis and research.
 """ 
